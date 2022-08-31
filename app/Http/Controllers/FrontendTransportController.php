@@ -9,9 +9,9 @@ use App\Exceptions\Checkin\AlreadyCheckedInException;
 use App\Exceptions\CheckInCollisionException;
 use App\Exceptions\HafasException;
 use App\Exceptions\TrainCheckinAlreadyExistException;
+use App\Feature\TrainCheckin\TrainCheckin;
 use App\Http\Controllers\Backend\EventController as EventBackend;
 use App\Http\Controllers\Backend\Transport\HomeController;
-use App\Http\Controllers\Backend\Transport\TrainCheckinController;
 use App\Http\Controllers\TransportController as TransportBackend;
 use App\Models\Event;
 use App\Models\HafasTrip;
@@ -138,7 +138,7 @@ class FrontendTransportController extends Controller
         ]);
     }
 
-    public function TrainCheckin(Request $request): RedirectResponse {
+    public function TrainCheckin(Request $request, TrainCheckin $trainCheckin): RedirectResponse {
         $validated = $request->validate([
                                             'tripID'            => ['required'],
                                             'start'             => ['required', 'numeric'], //Origin station IBNR
@@ -155,7 +155,7 @@ class FrontendTransportController extends Controller
                                         ]);
 
         try {
-            $backendResponse = TrainCheckinController::checkin(
+             $trainCheckinResult = $trainCheckin->checkin(
                 user:         Auth::user(),
                 hafasTrip:    HafasTrip::where('trip_id', $validated['tripID'])->first(),
                 origin:       TrainStation::where('ibnr', $validated['start'])->first(),
@@ -171,7 +171,7 @@ class FrontendTransportController extends Controller
                 postOnMastodon: isset($request->toot_check)
             );
 
-            $trainCheckin = $backendResponse['status']->trainCheckin;
+            $trainCheckin = $trainCheckinResult->getStatus()->trainCheckin;
 
             return redirect()->route('dashboard')->with('checkin-success', [
                 'distance'             => $trainCheckin->distance,
